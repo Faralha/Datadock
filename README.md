@@ -1,5 +1,11 @@
 # DataDock
 
+
+
+https://github.com/user-attachments/assets/efb45d19-ebc6-48b6-bf0c-4817bc0b7898
+
+
+
 Platform **Database-as-a-Service** untuk Lab MCI. Anggota project GitLab lab bisa membuat database PostgreSQL, MariaDB, atau MongoDB sendiri dalam hitungan detik, tanpa menunggu admin.
 
 Production: **https://db.iimlab.id**, login dengan akun GitLab lab.
