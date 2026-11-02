@@ -1,0 +1,95 @@
+{
+  "runtime": "bun 1.3.14",
+  "results": [
+    {
+      "id": "PG-1",
+      "status": "PASS",
+      "note": "current_user=dbaas_admin, rolsuper=false"
+    },
+    {
+      "id": "PG-2",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "PG-3",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "PG-4",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "PG-5",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "PG-6",
+      "status": "PASS",
+      "note": "tenant melihat statement_timeout=30s"
+    },
+    {
+      "id": "PG-7",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "PG-8",
+      "status": "PASS",
+      "note": "ditolak: permission denied for database \"p2_dev_app\""
+    },
+    {
+      "id": "PG-8b",
+      "status": "PASS",
+      "note": "tenant BISA konek ke DB postgres (CONNECT default PUBLIC); create table ditolak: permission denied for schema public; pg_database terlihat: p1_dev_app,p2_dev_app,postgres"
+    },
+    {
+      "id": "PG-9",
+      "status": "PASS",
+      "note": "100 baris"
+    },
+    {
+      "id": "PG-10",
+      "status": "PASS",
+      "note": "ditolak: canceling statement due to statement timeout setelah 30.0s"
+    },
+    {
+      "id": "PG-10b",
+      "status": "PASS",
+      "note": "tenant bisa SET statement_timeout=0 (batas hanya default, bukan paksaan)"
+    },
+    {
+      "id": "PG-11",
+      "status": "PASS",
+      "note": "7943871 bytes"
+    },
+    {
+      "id": "PG-12",
+      "status": "PASS",
+      "note": "ditolak: cannot execute INSERT in a read-only transaction"
+    },
+    {
+      "id": "PG-12b",
+      "status": "PASS",
+      "note": "BYPASS: tenant SET default_transaction_read_only=off lalu INSERT berhasil"
+    },
+    {
+      "id": "PG-12c",
+      "status": "PASS",
+      "note": "ditolak: too many connections for role \"p1_dev_app_u\""
+    },
+    {
+      "id": "PG-13",
+      "status": "PASS",
+      "note": "password lama ditolak, password baru berhasil"
+    },
+    {
+      "id": "PG-14",
+      "status": "PASS",
+      "note": "drop dengan sesi tenant aktif berhasil"
+    }
+  ]
+}

@@ -1,0 +1,408 @@
+# DataDock — diadaptasi dari template Standard CI/CD lab.
+# Perbedaan dari template (detail di DEPLOYMENT.md):
+#   - test: berjalan di runner `build` (butuh Docker daemon): engine PG/MariaDB/Mongo sementara + bun test
+#   - lint: typecheck TypeScript (`tsc`) dengan Bun, menggantikan ESLint
+#   - engine database adalah instance bare-metal yang sudah ada di server: deploy.sh tidak men-deploy engine,
+#     hanya menyelaraskan akun admin hak minimum (opsional, dengan akun root dari DATADOCK_ROOT_ENV_FILE)
+#   - hanya satu environment (production): build, deploy dan cleanup hanya di `main`. Branch `dev_*` dan `staging`
+#     tetap menjalankan CI (test, lint, secret scan, SAST) tanpa deploy
+#   - SonarQube dimatikan (SONAR_ENABLED: 'false'); set 'true' untuk menyalakannya lagi
+variables:
+  SONAR_IMAGE: 'sonarsource/sonar-scanner-cli:latest'
+  BUN_IMAGE: 'oven/bun:1.3.14-debian'
+  DOCKER_DRIVER: overlay2
+  ENV_BASE_DIR: '/opt/environments'
+
+  # Production di https://db.iimlab.id (template menambahkan .iimlab.id sendiri, jadi isinya hanya subdomain)
+  PROD_SUBDOMAIN_OVERRIDE: 'db'
+
+  INTERNAL_PORT: '3000'
+
+  # ==========================================
+  # 🔐 SECURITY SCAN TOGGLE (SAST & DAST)
+  # ==========================================
+  # Default: "false" (SAST & DAST DISABLED).
+  # Set ke "true" untuk mengaktifkan Semgrep, Trivy FS, dan OWASP ZAP.
+  # Bisa di-override per-project lewat GitLab Settings → CI/CD → Variables.
+  #
+  # Catatan:
+  #   - SonarQube punya toggle sendiri: SONAR_ENABLED.
+  #   - Secret Scan (TruffleHog) TETAP AKTIF dan tidak terpengaruh flag ini.
+  SECURITY_SCAN_ENABLED: 'false'
+
+  # SonarQube (sonar_check) dimatikan. Set ke "true" (di sini atau di CI/CD Variables) untuk menyalakannya lagi;
+  # SONAR_HOST_URL dan SONAR_TOKEN hanya dibutuhkan bila menyala.
+  SONAR_ENABLED: 'false'
+
+stages:
+  - test
+  - lint
+  - secret_scan
+  - sast
+  - sonar_check
+  - build
+  - deploy
+  - dast
+  - cleanup
+
+.determine_environment: &determine_environment
+  before_script:
+    - rm -f deploy.env
+    - |
+      CLEAN_BRANCH=$(echo "$CI_COMMIT_BRANCH" | tr '[:upper:]' '[:lower:]')
+      PROJECT_NAME="$CI_PROJECT_NAME"
+
+      if [[ "$CI_COMMIT_BRANCH" =~ ^dev_ ]]; then
+        export DEPLOY_ENV="dev"
+        export ENV_NAME="development"
+        export DYNAMIC_URL="https://${CLEAN_BRANCH}_${PROJECT_NAME}.iimlab.id"
+        export SONAR_QUALITY_GATE_WAIT="false"
+
+      elif [[ "$CI_COMMIT_BRANCH" == "staging" ]]; then
+        export DEPLOY_ENV="stage"
+        export ENV_NAME="staging"
+        export DYNAMIC_URL="https://stage_${PROJECT_NAME}.iimlab.id"
+        export SONAR_QUALITY_GATE_WAIT="true"
+
+      elif [[ "$CI_COMMIT_BRANCH" == "main" ]]; then
+        export DEPLOY_ENV="prod"
+        export ENV_NAME="production"
+        FINAL_SUBDOMAIN="${PROD_SUBDOMAIN_OVERRIDE:-$PROJECT_NAME}"
+        export DYNAMIC_URL="https://${FINAL_SUBDOMAIN}.iimlab.id"
+        export SONAR_QUALITY_GATE_WAIT="true"
+
+      else
+        echo "❌ Branch $CI_COMMIT_BRANCH tidak sesuai pola deployment"
+        exit 1
+      fi
+
+      echo "DEPLOY_ENV=$DEPLOY_ENV" > deploy.env
+      echo "DYNAMIC_URL=$DYNAMIC_URL" >> deploy.env
+      echo "ENV_NAME=$ENV_NAME" >> deploy.env
+      echo "SONAR_QUALITY_GATE_WAIT=$SONAR_QUALITY_GATE_WAIT" >> deploy.env
+      echo "CI_COMMIT_BRANCH=$CI_COMMIT_BRANCH" >> deploy.env
+      echo "PROD_SUBDOMAIN_OVERRIDE=$PROD_SUBDOMAIN_OVERRIDE" >> deploy.env
+      echo "INTERNAL_PORT=$INTERNAL_PORT" >> deploy.env
+
+# ─── Test ────────────────────────────────────────────────────────────────────
+# Test DataDock butuh engine asli (PG 18.3, MariaDB 12.2.2, Mongo 8.0, sama dengan server), jadi berjalan di
+# runner `build` yang bisa menyalakan container engine sementara (tanpa port host, dihapus di after_script).
+.test_template: &test_template
+  stage: test
+  tags:
+    - build
+  script:
+    - chmod +x deploy.sh
+    - ./deploy.sh test
+  after_script:
+    - ./deploy.sh test-cleanup
+  coverage: '/All files\s*\|\s*[\d.]+\s*\|\s*([\d.]+)/'
+  artifacts:
+    paths:
+      - coverage/
+    expire_in: 1 hour
+    when: always
+  timeout: 20m
+
+test_dev:
+  <<: *test_template
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^dev_.*/'
+
+test_stage:
+  <<: *test_template
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+test_prod:
+  <<: *test_template
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ─── Lint ────────────────────────────────────────────────────────────────────
+# Typecheck seluruh kode (server, web UI, test) dengan TypeScript strict.
+.lint_template: &lint_template
+  stage: lint
+  image: ${BUN_IMAGE}
+  tags:
+    - docker
+  script:
+    - cd control-plane
+    - echo "📦 Installing dependencies..."
+    - bun install --frozen-lockfile
+    - echo "🔍 Running TypeScript typecheck (strict)..."
+    - bun run typecheck
+  cache:
+    key: 'bun-modules-${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}'
+    paths:
+      - control-plane/node_modules/
+    policy: pull-push
+  allow_failure: false
+  timeout: 10m
+
+lint_dev:
+  <<: *lint_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^dev_.*/'
+
+lint_stage:
+  <<: *lint_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+lint_prod:
+  <<: *lint_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ─── Secret Scanning (TruffleHog) ────────────────────────────────────────────
+# NOTE: Tidak terpengaruh SECURITY_SCAN_ENABLED — selalu berjalan.
+.trufflehog_template: &trufflehog_template
+  stage: secret_scan
+  image:
+    name: trufflesecurity/trufflehog:3.93.4
+    entrypoint: ['']
+  tags:
+    - docker
+  script:
+    - echo "🔐 Running TruffleHog secret scanning..."
+    - trufflehog git file://. --since-commit HEAD~1 --only-verified --fail
+  allow_failure: false
+  timeout: 10m
+
+trufflehog_dev:
+  <<: *trufflehog_template
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^dev_.*/'
+
+trufflehog_stage:
+  <<: *trufflehog_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+trufflehog_prod:
+  <<: *trufflehog_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ─── SAST (Semgrep) ───────────────────────────────────────────────────────────
+# Gated by SECURITY_SCAN_ENABLED (default: disabled).
+.semgrep_template: &semgrep_template
+  stage: sast
+  image: semgrep/semgrep:1.152.0
+  tags:
+    - docker
+  script:
+    - echo "🛡️ Running Semgrep security pattern matching..."
+    - >-
+      semgrep scan --config=p/typescript --config=p/javascript --config=p/nodejs --config=p/secrets
+      --exclude=spike --exclude=control-plane/web/src/components/ui
+      --error --json --output=semgrep-report.json .
+  artifacts:
+    paths:
+      - semgrep-report.json
+    expire_in: 1 week
+    when: always
+  allow_failure: false
+  timeout: 15m
+
+semgrep_dev:
+  <<: *semgrep_template
+  allow_failure: true
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH =~ /^dev_.*/'
+
+semgrep_stage:
+  <<: *semgrep_template
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH == "staging"'
+
+semgrep_prod:
+  <<: *semgrep_template
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH == "main"'
+
+# ─── SAST (Trivy FS) ──────────────────────────────────────────────────────────
+# Gated by SECURITY_SCAN_ENABLED (default: disabled).
+.trivy_fs_template: &trivy_fs_template
+  stage: sast
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: ['']
+  tags:
+    - docker
+  script:
+    - echo "🔍 Running Trivy filesystem scan (HIGH & CRITICAL only)..."
+    - trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --skip-dirs spike --format json
+      --output trivy-fs-report.json .
+    - trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --skip-dirs spike --exit-code 1
+      .
+  artifacts:
+    paths:
+      - trivy-fs-report.json
+    expire_in: 1 week
+    when: always
+  allow_failure: false
+  timeout: 15m
+
+trivy_fs_dev:
+  <<: *trivy_fs_template
+  allow_failure: true
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH =~ /^dev_.*/'
+
+trivy_fs_stage:
+  <<: *trivy_fs_template
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH == "staging"'
+
+trivy_fs_prod:
+  <<: *trivy_fs_template
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH == "main"'
+
+# ─── SonarQube ────────────────────────────────────────────────────────────────
+# NOTE: Tidak terpengaruh SECURITY_SCAN_ENABLED — selalu berjalan.
+.sonar_template: &sonar_template
+  stage: sonar_check
+  image: ${SONAR_IMAGE}
+  <<: *determine_environment
+  script:
+    - source deploy.env
+    - |
+      echo "Running SonarQube analysis for $ENV_NAME..."
+
+      sonar-scanner \
+        -Dsonar.projectKey=${CI_PROJECT_NAME}-${DEPLOY_ENV} \
+        -Dsonar.projectName="${CI_PROJECT_NAME} (${ENV_NAME})" \
+        -Dsonar.projectVersion=${CI_COMMIT_SHORT_SHA} \
+        -Dsonar.host.url=${SONAR_HOST_URL} \
+        -Dsonar.token=${SONAR_TOKEN} \
+        -Dsonar.qualitygate.wait=${SONAR_QUALITY_GATE_WAIT} \
+        -Dsonar.qualitygate.timeout=300 \
+        -Dsonar.scm.disabled=true
+  cache:
+    key: 'sonar-cache-${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}'
+    paths:
+      - .sonar/cache
+      - .scannerwork
+    policy: pull-push
+  tags:
+    - docker
+  allow_failure: true
+  artifacts:
+    paths:
+      - deploy.env
+    expire_in: 1 hour
+
+sonar_check_dev:
+  <<: *sonar_template
+  rules:
+    - if: '$SONAR_ENABLED == "true" && $CI_COMMIT_BRANCH =~ /^dev_.*/'
+      when: on_success
+
+sonar_check_stage:
+  <<: *sonar_template
+  rules:
+    - if: '$SONAR_ENABLED == "true" && $CI_COMMIT_BRANCH == "staging"'
+      when: on_success
+
+sonar_check_prod:
+  <<: *sonar_template
+  allow_failure: false
+  rules:
+    - if: '$SONAR_ENABLED == "true" && $CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+# ─── Build ────────────────────────────────────────────────────────────────────
+build_image:
+  stage: build
+  <<: *determine_environment
+  script:
+    - source deploy.env
+    - chmod +x deploy.sh
+    - ./deploy.sh build
+
+    - echo "🛡️ Scanning local Docker image directly..."
+    - >-
+      docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+      aquasec/trivy:latest image --scanners vuln,secret
+      --severity HIGH,CRITICAL --exit-code 0
+      ${CI_PROJECT_NAME}:${CI_COMMIT_SHORT_SHA}
+
+  tags:
+    - build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  artifacts:
+    paths:
+      - deploy.env
+    expire_in: 1 hour
+
+# ─── Deploy ───────────────────────────────────────────────────────────────────
+# Butuh CI/CD variable bertipe File per environment scope: DATADOCK_ENV_FILE (wajib) dan DATADOCK_ROOT_ENV_FILE
+# (opsional, untuk bootstrap akun admin) — lihat DEPLOYMENT.md. Production manual, seperti template.
+.deploy_template: &deploy_template
+  stage: deploy
+  <<: *determine_environment
+  script:
+    - source deploy.env
+    - chmod +x deploy.sh
+    - ./deploy.sh deploy
+  tags:
+    - deploy
+  needs:
+    - job: build_image
+  # Satu deploy per environment pada satu waktu (instance database & file compose dipakai bersama)
+  resource_group: datadock-$CI_ENVIRONMENT_NAME
+
+deploy_prod:
+  <<: *deploy_template
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  environment:
+    name: production
+    url: $DYNAMIC_URL
+
+# ─── DAST (OWASP ZAP) ─────────────────────────────────────────────────────
+# Gated by SECURITY_SCAN_ENABLED (default: disabled). Berjalan setelah deploy production.
+owasp_zap_prod:
+  stage: dast
+  image: zaproxy/zap-stable
+  <<: *determine_environment
+  tags:
+    - docker
+  script:
+    - source deploy.env
+    - echo "🔍 Running OWASP ZAP DAST scan against $DYNAMIC_URL..."
+    - mkdir -p /zap/wrk
+    - zap-baseline.py -t "$DYNAMIC_URL" -T 60 -d 2>&1 | tee zap_report.log
+  artifacts:
+    paths:
+      - zap_report.log
+    expire_in: 1 week
+    when: always
+  needs:
+    - job: deploy_prod
+  rules:
+    - if: '$SECURITY_SCAN_ENABLED == "true" && $CI_COMMIT_BRANCH == "main"'
+  allow_failure: true
+  timeout: 30m
+
+# ─── Cleanup ──────────────────────────────────────────────────────────────────
+cleanup_images:
+  stage: cleanup
+  script:
+    - echo "Cleaning up dangling Docker images..."
+    - docker image prune -f --filter "until=24h"
+  tags:
+    - deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  allow_failure: true

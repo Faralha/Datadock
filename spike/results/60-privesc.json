@@ -1,0 +1,50 @@
+{
+  "runtime": "bun 1.3.14",
+  "results": [
+    {
+      "id": "ESC-PG-1",
+      "status": "PASS",
+      "note": "ditolak: permission denied to alter role"
+    },
+    {
+      "id": "ESC-PG-2",
+      "status": "PASS",
+      "note": "ditolak: permission denied to create role"
+    },
+    {
+      "id": "ESC-PG-3",
+      "status": "PASS",
+      "note": "ditolak: permission denied to grant role \"pg_read_all_data\""
+    },
+    {
+      "id": "ESC-PG-4",
+      "status": "PASS",
+      "note": "ditolak: permission denied to alter role"
+    },
+    {
+      "id": "ESC-MY-1",
+      "status": "FAIL",
+      "note": "seharusnya ditolak, tapi berhasil"
+    },
+    {
+      "id": "ESC-MY-2",
+      "status": "PASS",
+      "note": "ditolak: Access denied for user 'dbaas_admin'@'%' (using password: YES)"
+    },
+    {
+      "id": "ESC-MY-3",
+      "status": "FAIL",
+      "note": "seharusnya ditolak, tapi berhasil"
+    },
+    {
+      "id": "ESC-MG-1",
+      "status": "FAIL",
+      "note": "seharusnya ditolak, tapi berhasil"
+    },
+    {
+      "id": "ESC-MG-2",
+      "status": "FAIL",
+      "note": "seharusnya ditolak, tapi berhasil"
+    }
+  ]
+}

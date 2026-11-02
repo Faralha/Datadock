@@ -1,0 +1,83 @@
+# DataDock — stack untuk pengembangan lokal. Di server, engine adalah instance bare-metal yang sudah ada dan
+# deploy memakai .gitlab-ci.yml + deploy.sh (lihat DEPLOYMENT.md); di sini engine dijalankan sebagai container
+# dengan versi yang sama dengan server produksi (lihat spike/REPORT.md).
+services:
+  postgres:
+    image: postgres:18.3
+    container_name: datadock-pg
+    environment:
+      POSTGRES_PASSWORD: ${PG_ROOT_PASSWORD}
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+
+  mariadb:
+    image: mariadb:12.2.2-noble
+    container_name: datadock-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+    ports: ["3306:3306"]
+    volumes:
+      - mariadata:/var/lib/mysql
+      - backups:/backups
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      retries: 20
+
+  mongo:
+    image: mongo:8.0
+    container_name: datadock-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports: ["27017:27017"]
+    volumes:
+      - mongodata:/data/db
+      - backups:/backups
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 3s
+      retries: 20
+
+  control-plane:
+    # Target `dev`: Bun + tool dump (pg_dump 18, mariadb-dump 12.2, mongodump), source di-mount
+    build: { context: ./control-plane, target: dev }
+    image: datadock-dev
+    container_name: datadock-cp
+    working_dir: /app
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun run start"]
+    env_file: .env
+    environment:
+      PG_ADMIN_URL: postgres://dbaas_admin:${PG_ADMIN_PASSWORD}@postgres:5432/postgres
+      MARIADB_ADMIN_URL: mysql://dbaas_admin:${MARIADB_ADMIN_PASSWORD}@mariadb:3306
+      MONGO_ADMIN_URL: mongodb://dbaas_admin:${MONGO_ADMIN_PASSWORD}@mongo:27017/?authSource=admin
+      PG_ROOT_URL: postgres://postgres:${PG_ROOT_PASSWORD}@postgres:5432/postgres
+      MARIADB_ROOT_URL: mysql://root:${MARIADB_ROOT_PASSWORD}@mariadb:3306
+      MONGO_ROOT_URL: mongodb://root:${MONGO_ROOT_PASSWORD}@mongo:27017/?authSource=admin
+      SQLITE_PATH: /data/datadock.sqlite
+      BACKUP_DIR: /backups
+    ports: ["3000:3000"]
+    volumes:
+      - ./control-plane:/app
+      - cpnodemodules:/app/node_modules
+      - cpdata:/data
+      - cpbackups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+      mariadb: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  mariadata:
+  mongodata:
+  cpdata:
+  cpnodemodules:
+  cpbackups:
+  backups:

@@ -1,0 +1,70 @@
+{
+  "runtime": "bun 1.3.14",
+  "results": [
+    {
+      "id": "MY-1",
+      "status": "PASS",
+      "note": "driver mariadb, dbaas_admin@%, 12.2.2-MariaDB-ubu2404"
+    },
+    {
+      "id": "MY-2",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MY-3",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MY-4",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MY-5",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MY-6",
+      "status": "PASS",
+      "note": "konek ke p2 ditolak: (conn:3918, no: 1044, SQLState: 42000) Access denied for user 'p1_dev_app_u'@'%' to database 'p2_dev_app'; SELECT lintas ditolak: (conn:3919, no: 1142, SQLState: 42000) SELECT command denied to user 'p1_dev_app_u'@'<container-ip>' for table `p2_dev_app`.`secret`; SHOW DATABASES: information_schema,p1_dev_app"
+    },
+    {
+      "id": "MY-7",
+      "status": "PASS",
+      "note": "3 baris"
+    },
+    {
+      "id": "MY-8",
+      "status": "PASS",
+      "note": "@@max_statement_time=30; error: (conn:3922, no: 1969, SQLState: 70100) Query was interrupted: execution time limit 30.0 sec exceeded\nsql: SELECT SLEEP(35) AS s - parameters:[] setelah 30.0s; tenant SET SESSION → 0"
+    },
+    {
+      "id": "MY-9",
+      "status": "PASS",
+      "note": "ditolak: (conn:3963, no: 1226, SQLState: 42000) User 'p1_dev_app_u' has exceeded the 'max_user_connections' resource (current value: 20)"
+    },
+    {
+      "id": "MY-10",
+      "status": "PASS",
+      "note": "16384 bytes"
+    },
+    {
+      "id": "MY-11",
+      "status": "PASS",
+      "note": "koneksi baru ditolak: (conn:3965, no: 1142, SQLState: 42000) INSERT command denied to user 'p1_dev_app_u'@'<container-ip>' for table `p1_dev_app`.`t`; koneksi lama MASIH bisa INSERT"
+    },
+    {
+      "id": "MY-12",
+      "status": "PASS",
+      "note": "password lama ditolak, password baru berhasil"
+    },
+    {
+      "id": "MY-13",
+      "status": "PASS",
+      "note": ""
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+# Engine database SEMENTARA untuk job test di CI (bukan untuk deploy: di server, engine adalah instance
+# bare-metal yang sudah ada). Versi disamakan dengan server produksi. Tanpa port host; nama per pipeline.
+# Memakai network `bridge` bawaan Docker (tidak membuat network baru); deploy.sh membaca IP tiap container.
+#
+#   STACK_NAME=ci_datadock_<pipeline> ... docker compose -f test-engines.compose.yml up -d --wait
+name: ${STACK_NAME:?STACK_NAME wajib diisi}
+
+services:
+  postgres:
+    image: postgres:18.3
+    container_name: ${STACK_NAME}-pg
+    network_mode: bridge
+    environment:
+      POSTGRES_PASSWORD: ${PG_ROOT_PASSWORD:?PG_ROOT_PASSWORD wajib diisi}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 30
+
+  mariadb:
+    image: mariadb:12.2.2-noble
+    container_name: ${STACK_NAME}-mariadb
+    network_mode: bridge
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD wajib diisi}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      retries: 30
+
+  mongo:
+    image: mongo:8.0
+    container_name: ${STACK_NAME}-mongo
+    network_mode: bridge
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD wajib diisi}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 3s
+      retries: 30

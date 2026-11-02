@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "bun"
+    ],
+    "paths": {
+      "@/*": [
+        "./web/src/*"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "web/src",
+    "test",
+    "scripts"
+  ]
+}

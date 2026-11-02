@@ -1,0 +1,9 @@
+# Mode dev: build UI, jalankan GitLab palsu di container yang sama (port 8929), lalu control plane.
+# Pakai: docker compose -f compose.yml -f compose.dev.yml up -d
+services:
+  control-plane:
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun run build:web && (bun scripts/dev-gitlab.ts &) && bun run start"]
+    environment:
+      GITLAB_URL: http://localhost:8929
+      ADMIN_GROUP: demo-org/admins
+    ports: ["3000:3000", "8929:8929"]

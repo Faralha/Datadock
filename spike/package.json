@@ -1,0 +1,11 @@
+{
+  "name": "dbaas-spike",
+  "type": "module",
+  "dependencies": {
+    "elysia": "latest",
+    "mariadb": "latest",
+    "mongodb": "^6",
+    "mysql2": "latest",
+    "postgres": "latest"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "runtime": "bun 1.3.14",
+  "results": [
+    {
+      "id": "DX-1",
+      "status": "PASS",
+      "note": "Docker 26.1.4, API 1.45, linux 5.15.153.1-microsoft-standard-WSL2"
+    },
+    {
+      "id": "DX-2",
+      "status": "PASS",
+      "note": "exit 0, 4966648 bytes, 994ms"
+    },
+    {
+      "id": "DX-3",
+      "status": "PASS",
+      "note": "t 1000=1000, big 200000=200000"
+    },
+    {
+      "id": "DX-4",
+      "status": "PASS",
+      "note": "exit 0, 43973 bytes; mysqldump: tidak-ada"
+    },
+    {
+      "id": "DX-5",
+      "status": "PASS",
+      "note": "1000=1000"
+    },
+    {
+      "id": "DX-6",
+      "status": "PASS",
+      "note": "exit 0, 6174 bytes"
+    },
+    {
+      "id": "DX-7",
+      "status": "PASS",
+      "note": "1000=1000"
+    },
+    {
+      "id": "DX-8",
+      "status": "PASS",
+      "note": "exit 1, stderr: pg_dump: error: connection to server on socket \"/var/run/postgresql/.s.PGSQL.5432\" failed: FATAL:  database \"tidak_ada\" does not exist"
+    },
+    {
+      "id": "DX-9",
+      "status": "PASS",
+      "note": "stream 4966648 bytes vs file 4966648 bytes (selisih 0); TOC TABLE entries 4"
+    }
+  ]
+}

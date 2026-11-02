@@ -1,0 +1,4 @@
+# Script dan konfigurasi dijalankan di Linux (runner, container): selalu LF, juga di checkout Windows
+* text=auto eol=lf
+*.woff2 binary
+*.png binary

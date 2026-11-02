@@ -1,0 +1,60 @@
+{
+  "runtime": "bun 1.3.14",
+  "results": [
+    {
+      "id": "MG-1",
+      "status": "PASS",
+      "note": "dbaas_admin@admin, roles: clusterMonitor,dbAdminAnyDatabase,readWriteAnyDatabase,userAdminAnyDatabase"
+    },
+    {
+      "id": "MG-2",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MG-3",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "MG-4",
+      "status": "PASS",
+      "note": "100 dokumen"
+    },
+    {
+      "id": "MG-5",
+      "status": "PASS",
+      "note": "ditolak: not authorized on p2_dev_app to execute command { find: \"secret\", filter: {}, lsid: { id: UUID(\"ad8a70a6-9703-49fe-8af6-cd52e21b93a7\") }, $db: \"p2_dev_app\" }; listDatabases: p1_dev_app"
+    },
+    {
+      "id": "MG-6",
+      "status": "PASS",
+      "note": "$where sleep: ditolak: operation exceeded time limit"
+    },
+    {
+      "id": "MG-7",
+      "status": "PASS",
+      "note": "dataSize=2900, storageSize=4096"
+    },
+    {
+      "id": "MG-8",
+      "status": "PASS",
+      "note": "connections: {\"current\":2,\"available\":97508,\"totalCreated\":2809,\"rejected\":0,\"active\":1,\"queuedForEstablishment\":0,\"establishmentRate"
+    },
+    {
+      "id": "MG-9",
+      "status": "PASS",
+      "note": "koneksi baru ditolak: not authorized on p1_dev_app to execute command { insert: \"t\", documents: [ { x: 1, _id: ObjectId('6ae0a46c027c89cee8d2fa16') } ], ordered: true, lsid: { id: UUID(\"1b250bd5-30fa-46fb-838c-76348f1bc538\") }, $db: \"p1_dev_app\" }; koneksi lama juga ditolak (langsung berlaku); dengan dbAdmin: createCollection OK, createIndex OK"
+    },
+    {
+      "id": "MG-10",
+      "status": "PASS",
+      "note": "password lama ditolak, password baru berhasil"
+    },
+    {
+      "id": "MG-11",
+      "status": "PASS",
+      "note": ""
+    }
+  ]
+}
